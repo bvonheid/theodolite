@@ -16,6 +16,7 @@ public class Uc3KafkaStreamsBuilder extends KafkaStreamsBuilder {
   private String outputTopic; // NOPMD
   private Duration aggregtionDuration; // NOPMD
   private Duration aggregationAdvance; // NOPMD
+  private String windowProcessor; // NOPMD
 
   public Uc3KafkaStreamsBuilder(final Configuration config) {
     super(config);
@@ -36,6 +37,11 @@ public class Uc3KafkaStreamsBuilder extends KafkaStreamsBuilder {
     return this;
   }
 
+  public Uc3KafkaStreamsBuilder windowProcessor(final String windowProcessor) {
+    this.windowProcessor = windowProcessor;
+    return this;
+  }
+
   @Override
   protected Topology buildTopology(final Properties properties) {
     Objects.requireNonNull(this.inputTopic, "Input topic has not been set.");
@@ -48,7 +54,8 @@ public class Uc3KafkaStreamsBuilder extends KafkaStreamsBuilder {
         this.outputTopic,
         new SchemaRegistryAvroSerdeFactory(this.schemaRegistryUrl),
         this.aggregtionDuration,
-        this.aggregationAdvance);
+        this.aggregationAdvance,
+        this.windowProcessor);
 
     return topologyBuilder.build(properties);
   }

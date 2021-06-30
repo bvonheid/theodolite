@@ -22,19 +22,21 @@ public final class ConfigurationKeys {
 
   public static final String KAFKA_CONFIGURATION_TOPIC = "kafka.configuration.topic";
 
+
   // UC2
+  public static final String KAFKA_WINDOW_DURATION_MINUTES = "kafka.window.duration.minutes";
+
+  // UC3
+  public static final String AGGREGATION_DURATION = "aggregation.duration";
+
+  public static final String AGGREGATION_ADVANCE = "aggregation.advance";
+
+  public static final String WINDOW_PROCESSOR = "window.processor";
+
+  // UC4
   public static final String EMIT_PERIOD_MS = "emit.period.ms";
 
   public static final String GRACE_PERIOD_MS = "grace.period.ms";
-
-  // UC3
-  public static final String KAFKA_WINDOW_DURATION_MINUTES = "kafka.window.duration.minutes";
-
-  // UC4
-  public static final String AGGREGATION_DURATION_DAYS = "aggregation.duration.days";
-
-  public static final String AGGREGATION_ADVANCE_DAYS = "aggregation.advance.days";
-
 
   private ConfigurationKeys() {}
 
