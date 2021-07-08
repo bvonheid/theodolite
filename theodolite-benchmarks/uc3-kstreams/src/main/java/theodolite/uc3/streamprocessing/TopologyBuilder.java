@@ -90,6 +90,8 @@ public class TopologyBuilder {
       scottyTransformerSupplier.addWindow(slidingWindow);
       resultStream =
           newKeyStream
+              // optional, same keys, should be on same partition
+              // .repartition(Repartitioned.with(keySerde, this.srAvroSerdeFactory.forValues()))
               .transform(scottyTransformerSupplier)
               .map((key, stats) -> KeyValue.pair(
                   key.getSensorId(),
