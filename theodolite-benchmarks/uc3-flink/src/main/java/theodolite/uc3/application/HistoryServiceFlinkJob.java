@@ -1,6 +1,7 @@
 package theodolite.uc3.application;
 
 import com.google.common.math.Stats;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -97,9 +98,11 @@ public final class HistoryServiceFlinkJob {
     final String outputTopic = this.config.getString(ConfigurationKeys.KAFKA_OUTPUT_TOPIC);
     final ZoneId timeZone = ZoneId.of(this.config.getString(ConfigurationKeys.TIME_ZONE));
     final Time aggregationDuration =
-        Time.days(this.config.getInt(ConfigurationKeys.AGGREGATION_DURATION_DAYS));
+        Time.milliseconds(Duration
+            .parse(this.config.getString(ConfigurationKeys.AGGREGATION_DURATION)).toMillis());
     final Time aggregationAdvance =
-        Time.days(this.config.getInt(ConfigurationKeys.AGGREGATION_ADVANCE_DAYS));
+        Time.milliseconds(Duration
+            .parse(this.config.getString(ConfigurationKeys.AGGREGATION_ADVANCE)).toMillis());
     final boolean checkpointing = this.config.getBoolean(ConfigurationKeys.CHECKPOINTING, true);
 
     final KafkaConnectorFactory kafkaConnector = new KafkaConnectorFactory(

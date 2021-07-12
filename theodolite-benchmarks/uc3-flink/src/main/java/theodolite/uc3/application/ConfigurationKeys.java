@@ -17,9 +17,11 @@ public final class ConfigurationKeys {
 
   public static final String SCHEMA_REGISTRY_URL = "schema.registry.url";
 
-  public static final String AGGREGATION_DURATION_DAYS = "aggregation.duration.days";
+  public static final String AGGREGATION_DURATION = "aggregation.duration";
 
-  public static final String AGGREGATION_ADVANCE_DAYS = "aggregation.advance.days";
+  public static final String AGGREGATION_ADVANCE = "aggregation.advance";
+
+  public static final String WINDOW_PROCESSOR = "window.processor";
 
   public static final String COMMIT_INTERVAL_MS = "commit.interval.ms";
 
