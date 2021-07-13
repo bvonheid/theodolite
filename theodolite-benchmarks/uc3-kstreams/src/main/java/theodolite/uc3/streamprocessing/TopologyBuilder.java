@@ -85,8 +85,10 @@ public class TopologyBuilder {
           this.aggregationDuration, this.aggregationAdvance);
       final SlidingWindow slidingWindow = new SlidingWindow(WindowMeasure.Time,
           this.aggregationDuration.toMillis(), this.aggregationAdvance.toMillis());
+      // CHECKSTYLE.OFF: LineLength
       final KeyedScottyWindowTransformerSupplier<HourOfDayKey, ActivePowerRecord, KeyValue<HourOfDayKey, Stats>> scottyTransformerSupplier =
           new KeyedScottyWindowTransformerSupplier<>(new StatsWindowFunction(), 0);
+      // CHECKSTYLE.ON: LineLength
       scottyTransformerSupplier.addWindow(slidingWindow);
       resultStream =
           newKeyStream

@@ -5,7 +5,9 @@ import com.google.common.math.StatsAccumulator;
 import de.tub.dima.scotty.core.windowFunction.AggregateFunction;
 import titan.ccp.model.records.ActivePowerRecord;
 
-
+/**
+ * Implements the statistic functionality for use with Scotty windows.
+ */
 @SuppressWarnings("serial")
 public class StatsWindowFunction implements AggregateFunction<ActivePowerRecord, Stats, Stats> {
 
