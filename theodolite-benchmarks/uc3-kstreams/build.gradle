@@ -4,10 +4,6 @@ plugins {
 
 mainClassName = "theodolite.uc3.application.HistoryService"
 
-// repositories {
-//     // mavenLocal() // for the scotty connector
-// }
-
 dependencies {
     // implementation 'de.tub.dima.scotty:kafkaStreams-connector:0.4'
     implementation files('libs/kafkaStreams-connector-0.4.jar')

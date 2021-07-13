@@ -40,7 +40,7 @@ public class TopologyBuilder {
   private final String inputTopic;
   private final String outputTopic;
   private final SchemaRegistryAvroSerdeFactory srAvroSerdeFactory;
-  private final Duration aggregtionDuration;
+  private final Duration aggregationDuration;
   private final Duration aggregationAdvance;
   private final String windowProcessor;
 
@@ -51,12 +51,12 @@ public class TopologyBuilder {
    */
   public TopologyBuilder(final String inputTopic, final String outputTopic,
       final SchemaRegistryAvroSerdeFactory srAvroSerdeFactory,
-      final Duration aggregtionDuration, final Duration aggregationAdvance,
+      final Duration aggregationDuration, final Duration aggregationAdvance,
       final String windowProcessor) {
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
     this.srAvroSerdeFactory = srAvroSerdeFactory;
-    this.aggregtionDuration = aggregtionDuration;
+    this.aggregationDuration = aggregationDuration;
     this.aggregationAdvance = aggregationAdvance;
     this.windowProcessor = windowProcessor;
   }
@@ -82,9 +82,9 @@ public class TopologyBuilder {
 
     if ("scotty".equals(this.windowProcessor)) {
       LOGGER.info("Use Scotty Window Function with {} window time and {} advance time",
-          this.aggregtionDuration, this.aggregationAdvance);
+          this.aggregationDuration, this.aggregationAdvance);
       final SlidingWindow slidingWindow = new SlidingWindow(WindowMeasure.Time,
-          this.aggregtionDuration.toMillis(), this.aggregationAdvance.toMillis());
+          this.aggregationDuration.toMillis(), this.aggregationAdvance.toMillis());
       final KeyedScottyWindowTransformerSupplier<HourOfDayKey, ActivePowerRecord, KeyValue<HourOfDayKey, Stats>> scottyTransformerSupplier =
           new KeyedScottyWindowTransformerSupplier<>(new StatsWindowFunction(), 0);
       scottyTransformerSupplier.addWindow(slidingWindow);
@@ -99,12 +99,12 @@ public class TopologyBuilder {
 
     } else {
       LOGGER.info("Use KStreams Window Function with {} window time and {} advance time",
-          this.aggregtionDuration, this.aggregationAdvance);
+          this.aggregationDuration, this.aggregationAdvance);
       resultStream =
           newKeyStream
               .groupByKey(Grouped.with(keySerde, this.srAvroSerdeFactory.forValues()))
               .windowedBy(
-                  TimeWindows.of(this.aggregtionDuration).advanceBy(this.aggregationAdvance))
+                  TimeWindows.of(this.aggregationDuration).advanceBy(this.aggregationAdvance))
               .aggregate(
                   () -> Stats.of(),
                   (k, record, stats) -> StatsFactory.accumulate(stats, record.getValueInW()),
