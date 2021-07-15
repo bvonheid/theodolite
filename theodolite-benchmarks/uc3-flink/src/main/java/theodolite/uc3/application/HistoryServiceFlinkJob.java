@@ -31,6 +31,7 @@ import theodolite.commons.flink.serialization.StatsSerializer;
 import theodolite.uc3.application.util.HourOfDayKey;
 import theodolite.uc3.application.util.HourOfDayKeyFactory;
 import theodolite.uc3.application.util.HourOfDayKeySerde;
+import theodolite.uc3.application.util.KeyAndStats;
 import theodolite.uc3.application.util.StatsKeyFactory;
 import titan.ccp.common.configuration.ServiceConfigurations;
 import titan.ccp.model.records.ActivePowerRecord;
@@ -146,8 +147,10 @@ public final class HistoryServiceFlinkJob {
       // Scotty configuration
       final SlidingWindow slidingWindow = new SlidingWindow(WindowMeasure.Time,
           aggregationDuration.toMilliseconds(), aggregationAdvance.toMilliseconds());
-      final KeyedScottyWindowOperator<HourOfDayKey, ActivePowerRecord, Stats> processingFunction =
+      // CHECKSTYLE.OFF: LineLength
+      final KeyedScottyWindowOperator<HourOfDayKey, ActivePowerRecord, KeyAndStats> processingFunction =
           new KeyedScottyWindowOperator<>(aggFunction);
+      // CHECKSTYLE.ON: LineLength
       processingFunction.addWindow(slidingWindow);
 
       // Process Stream
@@ -155,10 +158,11 @@ public final class HistoryServiceFlinkJob {
           newKeyStream
               .process(processingFunction)
               .flatMap(
-                  (final AggregateWindow<Stats> aggWindow,
+                  (final AggregateWindow<KeyAndStats> aggWindow,
                       final Collector<Tuple2<String, String>> out) -> {
                     aggWindow.getAggValues()
-                        .forEach(stats -> out.collect(new Tuple2<>("no_key", stats.toString())));
+                        .forEach(
+                            ks -> out.collect(new Tuple2<>(ks.getKey(), ks.getStats().toString())));
                   })
               .name("flatMap");
     } else {

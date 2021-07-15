@@ -3,6 +3,7 @@ package theodolite.uc3.application;
 import com.google.common.math.Stats;
 import com.google.common.math.StatsAccumulator;
 import org.apache.flink.api.common.functions.AggregateFunction;
+import theodolite.uc3.application.util.KeyAndStats;
 import theodolite.uc3.application.util.StatsFactory;
 import titan.ccp.model.records.ActivePowerRecord;
 
@@ -12,7 +13,9 @@ import titan.ccp.model.records.ActivePowerRecord;
  */
 public class StatsAggregateFunction
     implements AggregateFunction<ActivePowerRecord, Stats, Stats>,
-    de.tub.dima.scotty.core.windowFunction.AggregateFunction<ActivePowerRecord, Stats, Stats> {
+    // CHECKSTYLE.OFF: LineLength
+    de.tub.dima.scotty.core.windowFunction.AggregateFunction<ActivePowerRecord, KeyAndStats, KeyAndStats> {
+  // CHECKSTYLE.ON: LineLength
 
   private static final long serialVersionUID = -8873572990921515499L; // NOPMD
 
@@ -45,22 +48,22 @@ public class StatsAggregateFunction
   // Scotty Aggregate Function methods
 
   @Override
-  public Stats lift(final ActivePowerRecord apr) {
+  public KeyAndStats lift(final ActivePowerRecord apr) {
     final StatsAccumulator statsAccumulator = new StatsAccumulator();
     statsAccumulator.add(apr.getValueInW());
-    return statsAccumulator.snapshot();
+    return new KeyAndStats(apr.getIdentifier(), statsAccumulator.snapshot());
   }
 
   @Override
-  public Stats combine(final Stats s1, final Stats s2) {
+  public KeyAndStats combine(final KeyAndStats ks1, final KeyAndStats ks2) {
     final StatsAccumulator statsAccumulator = new StatsAccumulator();
-    statsAccumulator.addAll(s1);
-    statsAccumulator.addAll(s2);
-    return statsAccumulator.snapshot();
+    statsAccumulator.addAll(ks1.getStats());
+    statsAccumulator.addAll(ks2.getStats());
+    return new KeyAndStats(ks1.getKey(), statsAccumulator.snapshot());
   }
 
   @Override
-  public Stats lower(final Stats s) {
-    return s;
+  public KeyAndStats lower(final KeyAndStats ks) {
+    return ks;
   }
 }
