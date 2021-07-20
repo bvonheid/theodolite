@@ -19,6 +19,7 @@ import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
+import org.apache.kafka.streams.kstream.Repartitioned;
 import org.apache.kafka.streams.kstream.TimeWindows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,11 +93,12 @@ public class TopologyBuilder {
       scottyTransformerSupplier.addWindow(slidingWindow);
       resultStream =
           newKeyStream
-              // optional, same keys, should be on same partition
-              // .repartition(Repartitioned.with(keySerde, this.srAvroSerdeFactory.forValues()))
+              // optional: same keys, should be on same partition
+              // however, more similiar to kstreams
+              .repartition(Repartitioned.with(keySerde, this.srAvroSerdeFactory.forValues()))
               .transform(scottyTransformerSupplier)
               .map((key, stats) -> KeyValue.pair(
-                  key.getSensorId(),
+                  keyFactory.getSensorId(key),
                   stats.toString()));
 
     } else {
