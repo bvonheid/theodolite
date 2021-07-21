@@ -37,6 +37,8 @@ import titan.ccp.model.records.ActivePowerRecord;
 @SuppressWarnings("PMD.ExcessiveImports")
 public class TopologyBuilder {
 
+  private static final int GRACE_IN_SECONDS = 5;
+
   private static final Logger LOGGER = LoggerFactory.getLogger(TopologyBuilder.class);
 
   private final ZoneId zone = ZoneId.of("Europe/Paris"); // TODO as parameter
@@ -92,7 +94,7 @@ public class TopologyBuilder {
           this.aggregationDuration.toMillis(), this.aggregationAdvance.toMillis());
       // CHECKSTYLE.OFF: LineLength
       final KeyedScottyWindowTransformerSupplier<HourOfDayKey, ActivePowerRecord, KeyValue<HourOfDayKey, Stats>> scottyTransformerSupplier =
-          new KeyedScottyWindowTransformerSupplier<>(new StatsWindowFunction(), 0);
+          new KeyedScottyWindowTransformerSupplier<>(new StatsWindowFunction(), GRACE_IN_SECONDS);
       // CHECKSTYLE.ON: LineLength
       scottyTransformerSupplier.addWindow(slidingWindow);
       resultStream =
@@ -112,7 +114,7 @@ public class TopologyBuilder {
           .groupByKey(Grouped.with(keySerde, this.srAvroSerdeFactory.forValues()))
           .windowedBy(
               SlidingWindows.withTimeDifferenceAndGrace(this.aggregationDuration,
-                  Duration.ofSeconds(5)))
+                  Duration.ofSeconds(GRACE_IN_SECONDS)))
           .aggregate(
               () -> Stats.of(),
               (k, record, stats) -> StatsFactory.accumulate(stats, record.getValueInW()),
@@ -130,7 +132,8 @@ public class TopologyBuilder {
           newKeyStream
               .groupByKey(Grouped.with(keySerde, this.srAvroSerdeFactory.forValues()))
               .windowedBy(
-                  TimeWindows.of(this.aggregationDuration).advanceBy(this.aggregationAdvance))
+                  TimeWindows.of(this.aggregationDuration).advanceBy(this.aggregationAdvance)
+                      .grace(Duration.ofSeconds(GRACE_IN_SECONDS)))
               .aggregate(
                   () -> Stats.of(),
                   (k, record, stats) -> StatsFactory.accumulate(stats, record.getValueInW()),
