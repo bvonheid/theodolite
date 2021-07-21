@@ -16,13 +16,13 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Grouped;
-import org.apache.kafka.streams.kstream.KGroupedStream;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Repartitioned;
 import org.apache.kafka.streams.kstream.SlidingWindows;
-import org.apache.kafka.streams.kstream.TimeWindowedKStream;
+import org.apache.kafka.streams.kstream.Suppressed;
+import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.kstream.TimeWindows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,29 +105,32 @@ public class TopologyBuilder {
                   keyFactory.getSensorId(key),
                   stats.toString()));
 
-    } else { // Kafka Streams Window functions
-      final KGroupedStream<HourOfDayKey, ActivePowerRecord> groupedStream = newKeyStream
-          .groupByKey(Grouped.with(keySerde, this.srAvroSerdeFactory.forValues()));
-      TimeWindowedKStream<HourOfDayKey, ActivePowerRecord> windowedKStream;
-
-      if ("sliding".equals(this.windowProcessor)) {
-        LOGGER.info("Use KStreams Sliding Window Function with {} window time",
-            this.aggregationDuration);
-        windowedKStream = groupedStream
-            .windowedBy(
-                SlidingWindows.withTimeDifferenceAndGrace(this.aggregationDuration,
-                    Duration.ofSeconds(0)));
-      } else {
-        LOGGER.info("Use KStreams Hopping Window Function with {} window time and {} advance time",
-            this.aggregationDuration, this.aggregationAdvance);
-        windowedKStream =
-            groupedStream
-                .windowedBy(
-                    TimeWindows.of(this.aggregationDuration).advanceBy(this.aggregationAdvance));
-      }
-
+    } else if ("sliding".equals(this.windowProcessor)) {
+      LOGGER.info("Use KStreams Sliding Window Function with {} window time",
+          this.aggregationDuration);
+      resultStream = newKeyStream
+          .groupByKey(Grouped.with(keySerde, this.srAvroSerdeFactory.forValues()))
+          .windowedBy(
+              SlidingWindows.withTimeDifferenceAndGrace(this.aggregationDuration,
+                  Duration.ofSeconds(5)))
+          .aggregate(
+              () -> Stats.of(),
+              (k, record, stats) -> StatsFactory.accumulate(stats, record.getValueInW()),
+              Materialized.with(keySerde,
+                  GenericSerde.from(Stats::toByteArray, Stats::fromByteArray)))
+          .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded()))
+          .toStream()
+          .map((key, stats) -> KeyValue.pair(
+              keyFactory.getSensorId(key.key()),
+              stats.toString()));
+    } else {
+      LOGGER.info("Use KStreams Hopping Window Function with {} window time and {} advance time",
+          this.aggregationDuration, this.aggregationAdvance);
       resultStream =
-          windowedKStream
+          newKeyStream
+              .groupByKey(Grouped.with(keySerde, this.srAvroSerdeFactory.forValues()))
+              .windowedBy(
+                  TimeWindows.of(this.aggregationDuration).advanceBy(this.aggregationAdvance))
               .aggregate(
                   () -> Stats.of(),
                   (k, record, stats) -> StatsFactory.accumulate(stats, record.getValueInW()),
