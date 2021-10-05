@@ -39,11 +39,13 @@ class TheodoliteOperator {
 
         SSLTest.test()
 
-        LeaderElector(
-            client = client,
-            name = "theodolite-operator" // TODO(make leaslock name configurable via env var)
-        )
-            .getLeadership(::startOperator)
+        startOperator()
+
+//        LeaderElector(
+//            client = client,
+//            name = "theodolite-operator" // TODO(make leaslock name configurable via env var)
+//        )
+//            .getLeadership(::startOperator)
     }
 
     /**
