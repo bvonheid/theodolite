@@ -11,6 +11,7 @@ import theodolite.model.crd.BenchmarkCRD
 import theodolite.model.crd.BenchmarkExecutionList
 import theodolite.model.crd.ExecutionCRD
 import theodolite.model.crd.KubernetesBenchmarkList
+import javax.net.ssl.SSLContext
 
 
 private const val DEFAULT_NAMESPACE = "default"
@@ -35,6 +36,9 @@ class TheodoliteOperator {
 
 
     fun start() {
+
+        SSLTest.test()
+
         LeaderElector(
             client = client,
             name = "theodolite-operator" // TODO(make leaslock name configurable via env var)
@@ -46,7 +50,7 @@ class TheodoliteOperator {
      * Start the operator.
      */
     private fun startOperator() {
-        logger.info { "Using $namespace as namespace." }
+        logger.info { "Using '$namespace' as namespace." }
         client.use {
             KubernetesDeserializer.registerCustomKind(
                 "$GROUP/$API_VERSION",
