@@ -1,6 +1,11 @@
 package theodolite.uc3.application;
 
 import com.google.common.math.Stats;
+import de.tub.dima.scotty.core.AggregateWindow;
+import de.tub.dima.scotty.core.windowType.SlidingWindow;
+import de.tub.dima.scotty.core.windowType.WindowMeasure;
+import de.tub.dima.scotty.flinkconnector.KeyedScottyWindowOperator;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -9,12 +14,14 @@ import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.streaming.api.TimeCharacteristic;
+import org.apache.flink.streaming.api.datastream.KeyedStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
+import org.apache.flink.util.Collector;
 import org.apache.kafka.common.serialization.Serdes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +31,7 @@ import theodolite.commons.flink.serialization.StatsSerializer;
 import theodolite.uc3.application.util.HourOfDayKey;
 import theodolite.uc3.application.util.HourOfDayKeyFactory;
 import theodolite.uc3.application.util.HourOfDayKeySerde;
+import theodolite.uc3.application.util.KeyAndStats;
 import theodolite.uc3.application.util.StatsKeyFactory;
 import titan.ccp.common.configuration.ServiceConfigurations;
 import titan.ccp.model.records.ActivePowerRecord;
@@ -31,6 +39,7 @@ import titan.ccp.model.records.ActivePowerRecord;
 /**
  * The History microservice implemented as a Flink job.
  */
+@SuppressWarnings("PMD.ExcessiveImports")
 public final class HistoryServiceFlinkJob {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(HistoryServiceFlinkJob.class);
@@ -55,8 +64,6 @@ public final class HistoryServiceFlinkJob {
   }
 
   private void configureEnv() {
-    this.env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-
     final boolean checkpointing = this.config.getBoolean(ConfigurationKeys.CHECKPOINTING, true);
     final int commitIntervalMs = this.config.getInt(ConfigurationKeys.COMMIT_INTERVAL_MS);
     if (checkpointing) {
@@ -96,10 +103,14 @@ public final class HistoryServiceFlinkJob {
     final String inputTopic = this.config.getString(ConfigurationKeys.KAFKA_INPUT_TOPIC);
     final String outputTopic = this.config.getString(ConfigurationKeys.KAFKA_OUTPUT_TOPIC);
     final ZoneId timeZone = ZoneId.of(this.config.getString(ConfigurationKeys.TIME_ZONE));
+    final String windowProcessor =
+        this.config.getString(ConfigurationKeys.WINDOW_PROCESSOR, "default");
     final Time aggregationDuration =
-        Time.days(this.config.getInt(ConfigurationKeys.AGGREGATION_DURATION_DAYS));
+        Time.milliseconds(Duration
+            .parse(this.config.getString(ConfigurationKeys.AGGREGATION_DURATION)).toMillis());
     final Time aggregationAdvance =
-        Time.days(this.config.getInt(ConfigurationKeys.AGGREGATION_ADVANCE_DAYS));
+        Time.milliseconds(Duration
+            .parse(this.config.getString(ConfigurationKeys.AGGREGATION_ADVANCE)).toMillis());
     final boolean checkpointing = this.config.getBoolean(ConfigurationKeys.CHECKPOINTING, true);
 
     final KafkaConnectorFactory kafkaConnector = new KafkaConnectorFactory(
@@ -116,26 +127,67 @@ public final class HistoryServiceFlinkJob {
 
     // Streaming topology
     final StatsKeyFactory<HourOfDayKey> keyFactory = new HourOfDayKeyFactory();
-    this.env
+
+    final KeyedStream<ActivePowerRecord, HourOfDayKey> newKeyStream = this.env
         .addSource(kafkaSource).name("[Kafka Consumer] Topic: " + inputTopic)
         // .rebalance()
         .keyBy((KeySelector<ActivePowerRecord, HourOfDayKey>) record -> {
           final Instant instant = Instant.ofEpochMilli(record.getTimestamp());
           final LocalDateTime dateTime = LocalDateTime.ofInstant(instant, timeZone);
           return keyFactory.createKey(record.getIdentifier(), dateTime);
-        })
-        .window(SlidingEventTimeWindows.of(aggregationDuration, aggregationAdvance))
-        .aggregate(new StatsAggregateFunction(), new HourOfDayProcessWindowFunction())
-        .map(tuple -> {
-          final String newKey = keyFactory.getSensorId(tuple.f0);
-          final String newValue = tuple.f1.toString();
-          final int hourOfDay = tuple.f0.getHourOfDay();
-          LOGGER.info("{}|{}: {}", newKey, hourOfDay, newValue);
-          return new Tuple2<>(newKey, newValue);
-        })
-        .name("map")
+        });
+
+    SingleOutputStreamOperator<Tuple2<String, String>> resultStream;
+    final StatsAggregateFunction aggFunction = new StatsAggregateFunction();
+
+    if ("scotty".equals(windowProcessor)) {
+      LOGGER.info("Use Scotty Window Function with {}ms window time and {}ms advance time",
+          aggregationDuration.toMilliseconds(), aggregationAdvance.toMilliseconds());
+
+      // Scotty configuration
+      final SlidingWindow slidingWindow = new SlidingWindow(WindowMeasure.Time,
+          aggregationDuration.toMilliseconds(), aggregationAdvance.toMilliseconds());
+      // CHECKSTYLE.OFF: LineLength
+      final KeyedScottyWindowOperator<HourOfDayKey, ActivePowerRecord, KeyAndStats> processingFunction =
+          new KeyedScottyWindowOperator<>(aggFunction);
+      // CHECKSTYLE.ON: LineLength
+      processingFunction.addWindow(slidingWindow);
+
+      // Process Stream
+      resultStream =
+          newKeyStream
+              .process(processingFunction)
+              .flatMap(
+                  (final AggregateWindow<KeyAndStats> aggWindow,
+                      final Collector<Tuple2<String, String>> out) -> {
+                    aggWindow.getAggValues()
+                        .forEach(
+                            ks -> out.collect(new Tuple2<>(ks.getKey(), ks.getStats().toString())));
+                  })
+              .name("flatMap");
+    } else {
+      LOGGER.info("Use KStreams Window Function with {}ms window time and {}ms advance time",
+          aggregationDuration.toMilliseconds(), aggregationAdvance.toMilliseconds());
+
+      // Process Stream
+      resultStream = newKeyStream
+          .window(SlidingEventTimeWindows.of(aggregationDuration, aggregationAdvance))
+          .aggregate(aggFunction, new HourOfDayProcessWindowFunction())
+          .map(tuple -> {
+            final String newKey = keyFactory.getSensorId(tuple.f0);
+            final String newValue = tuple.f1.toString();
+            final int hourOfDay = tuple.f0.getHourOfDay();
+            LOGGER.info("{}|{}: {}", newKey, hourOfDay, newValue);
+            return new Tuple2<>(newKey, newValue);
+          })
+          .name("map");
+    }
+
+    // Write results to output stream
+    resultStream
         .returns(Types.TUPLE(Types.STRING, Types.STRING))
-        .addSink(kafkaSink).name("[Kafka Producer] Topic: " + outputTopic);
+        .addSink(kafkaSink)
+        .name("[Kafka Producer] Topic: " + outputTopic);
   }
 
   /**

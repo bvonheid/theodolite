@@ -3,3 +3,11 @@ plugins {
 }
 
 mainClassName = "theodolite.uc3.application.HistoryService"
+
+dependencies {
+    // implementation 'de.tub.dima.scotty:kafkaStreams-connector:0.4'
+    implementation files('libs/kafkaStreams-connector-0.4.jar')
+    implementation files('libs/core-0.4.jar')
+    implementation files('libs/slicing-0.4.jar')
+    implementation files('libs/state-0.4.jar')
+}

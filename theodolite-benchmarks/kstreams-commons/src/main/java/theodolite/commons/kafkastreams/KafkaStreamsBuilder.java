@@ -97,9 +97,9 @@ public abstract class KafkaStreamsBuilder {
     this.setOptionalProperty(propBuilder, StreamsConfig.REPLICATION_FACTOR_CONFIG,
         this.config::getInt, p -> p >= 0);
 
-    if (this.config.containsKey(StreamsConfig.TOPOLOGY_OPTIMIZATION)
-        && this.config.getBoolean(StreamsConfig.TOPOLOGY_OPTIMIZATION)) {
-      propBuilder.set(StreamsConfig.TOPOLOGY_OPTIMIZATION, StreamsConfig.OPTIMIZE);
+    if (this.config.containsKey(StreamsConfig.TOPOLOGY_OPTIMIZATION_CONFIG)
+        && this.config.getBoolean(StreamsConfig.TOPOLOGY_OPTIMIZATION_CONFIG)) {
+      propBuilder.set(StreamsConfig.TOPOLOGY_OPTIMIZATION_CONFIG, StreamsConfig.OPTIMIZE);
     }
 
     return propBuilder.build();

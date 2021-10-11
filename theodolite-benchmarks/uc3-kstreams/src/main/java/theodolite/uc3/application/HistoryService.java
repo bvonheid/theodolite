@@ -36,9 +36,10 @@ public class HistoryService {
     uc3KafkaStreamsBuilder
         .outputTopic(this.config.getString(ConfigurationKeys.KAFKA_OUTPUT_TOPIC))
         .aggregtionDuration(
-            Duration.ofDays(this.config.getInt(ConfigurationKeys.AGGREGATION_DURATION_DAYS)))
+            Duration.parse(this.config.getString(ConfigurationKeys.AGGREGATION_DURATION)))
         .aggregationAdvance(
-            Duration.ofDays(this.config.getInt(ConfigurationKeys.AGGREGATION_ADVANCE_DAYS)));
+            Duration.parse(this.config.getString(ConfigurationKeys.AGGREGATION_ADVANCE)))
+        .windowProcessor(this.config.getString(ConfigurationKeys.WINDOW_PROCESSOR, "default"));
 
     // Configuration of the stream application
     final KafkaStreams kafkaStreams = uc3KafkaStreamsBuilder.build();
