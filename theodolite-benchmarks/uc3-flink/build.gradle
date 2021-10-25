@@ -12,10 +12,10 @@ allprojects {
 
 dependencies {
     // implementation 'de.tub.dima.scotty:flink-connector:0.4'
-    implementation files('libs/flink-connector-0.4.jar')
-    implementation files('libs/core-0.4.jar')
-    implementation files('libs/slicing-0.4.jar')
-    implementation files('libs/state-0.4.jar')
+    compile files('libs/flink-connector-0.4.jar')
+    compile files('libs/core-0.4.jar')
+    compile files('libs/slicing-0.4.jar')
+    compile files('libs/state-0.4.jar')
 }
 
 mainClassName = "theodolite.uc3.application.HistoryServiceFlinkJob"
